@@ -1,0 +1,166 @@
+# ============================================================================
+# IWO (Incremental Weight Optimization) 训练配置
+# ============================================================================
+# 两阶段训练策略：
+#
+# Stage-1 (正常训练):
+#   - 使用 config/lle.yaml 训练原始 MobileIE-LLE
+#   - 得到 best.pkl (PSNR ≈ 21-22+)
+#   - 命令: python main2.py -task train -model_task lle
+#
+# Stage-2 (IWO 增量优化) ← 本配置文件:
+#   - 从 best.pkl 加载权重作为 W_pre（冻结）
+#   - 添加 W_learn 参数（初始化为0），只训练增量修正
+#   - 使用更小的学习率和正则化，避免破坏已学到的特征
+#   - 目标：PSNR 22.72 → 23+
+#   - 命令: python train_iwo.py -task train -model_task lle
+#
+# 训练完成后：
+#   - best_iwo.pkl: 带 IWO 的模型（W_pre + W_learn）
+#   - best_iwo_fused.pkl: 融合后的模型（W_fused = W_pre + W_learn）
+#   - best_iwo_slim.pkl: slim 版本（用于推理/导出）
+# ============================================================================
+
+exp_name: lle_iwo
+
+# ==================== 模型配置 ====================
+model:
+  type: original  # original 或 re-parameterized
+  channels: 12
+  rep_scale: 4
+  need_slim: false  # IWO阶段不需要自动slim
+  pretrained: ""  # 预训练权重（如果需要）
+
+# ==================== 数据配置 ====================
+data:
+  seed: 2025
+  train_count: 710
+  valid_count: 90
+  test_list: lists/uieb_test90.txt
+
+# ==================== 训练配置 ====================
+train:
+  # ★ 关键：预训练权重路径（必须指定）
+  pretrained_ckpt: '/home/featurize/work/test9iwo/experiments/2025-11-19 09-03-57 train_lle/history/best_E105_PSNR22.714_20251119-093917.pkl' 
+  
+  # 数据路径（必须）
+  train_inp: /home/featurize/data/raw-890/raw-890
+  train_gt: /home/featurize/data/reference-890/reference-890
+  valid_inp: /home/featurize/data/raw-890/raw-890
+  valid_gt: /home/featurize/data/reference-890/reference-890
+  
+  batch_size: 4
+  num_workers: 4
+  
+  # ★★★ IWO核心配置 ★★★
+  # W_final = W_pre + W_learn
+  # - W_pre: 从 pretrained_ckpt 加载并冻结
+  # - W_learn: 新增可训练参数，初始化为0或小随机值
+  iwo:
+    epoch: 80  # IWO阶段训练总epoch数（相比stage-1更短，聚焦增量优化）
+    init_std: 0.0  # W_learn初始化标准差（0=全零初始化，保守策略；可试1e-4）
+    lr_scale: 0.7  # IWO参数(weight1)的学习率倍数（相对lr_iwo），可试0.5-1.5
+    target_layers: null  # 启用IWO的层（null=所有MBRConv；或指定层名列表）
+  
+  # 学习率配置
+  # ★ 降低学习率，避免破坏预训练权重
+  lr_iwo: 2e-4  # IWO阶段基础学习率（从3e-4降低到1e-4，更保守）
+  gate_lr_scale: 0.3  # Gate参数学习率倍数
+  
+  # 学习率调度器
+  scheduler: cosine  # cosine / cosine_wr / plateau / step
+  cosine_T: 80  # 与iwo.epoch保持一致
+  eta_min: 1.0e-7
+  
+  # 验证与保存
+  val_every: 2  # 每N个epoch验证一次
+  save_slim: true  # 保存slim版本（用于导出）
+  
+  # EMA（指数移动平均）
+  ema: true
+  ema_decay: 0.999
+  
+  # Gate正则（平滑衰减策略）
+  # 策略：前80 epoch保持强正则，之后40 epoch线性衰减到最小值
+  gate_reg: 5.0e-5  # 初始正则系数（L2惩罚）
+  gate_reg_epochs: 20  # ★ 前80个epoch保持gate_reg（对应iwo.epoch）
+  gate_reg_tail: 40  # 衰减周期：80 epoch后线性衰减40个epoch
+  gate_reg_floor: 1.0e-6  # 最终保持的最小正则值
+  
+  # Warmup（IWO阶段通常不需要）
+  warmup: false
+  warmup_epoch: 10
+  lr_warmup: 1.0e-6
+  
+  # CPU快速验证
+  fast_eval_when_cpu: false
+  fast_eval_max: 0
+
+# ==================== 损失函数配置 ====================
+loss:
+  # 颜色一致性（Lab空间门控）
+  color:
+    enable: false   
+    scale: 0.11  # 总系数（IWO阶段可以稍小）
+    warmup_epoch: 5  # IWO阶段更短
+    
+    # Lab均值窗口（CV坐标系）
+    a_window: [126, 134]
+    b_window: [128, 140]
+    
+    # Lab方差带宽
+    var_band: [40, 1200]
+    
+    # 权重系数
+    w_lab_mean: 0.02
+    w_lab_var: 0.005
+    w_rgb_stat: 0.01
+    
+    # RGB统计正则
+    mu_gap: 0.08
+    rho_min: 0.10
+  
+  # LVW（局部方差加权）
+  lvw:
+    enable: false
+  
+  # UIEDP（训练期辅助损失）
+  uiedp:
+    enable: false  # IWO阶段可以关闭重型IQA，加快训练
+    w_ms: 0.2
+    w_perc: 0.01
+    w_musiq: 1.0e-5
+    w_uranker: 1.0e-3
+    ms_perc_start: 1
+    iqa_start: 10
+    iqa_every: 4
+    iqa_down: 224
+    grad_clip: 0.1
+  
+  # 损失权重（参考lle.yaml的最佳配置）
+  weights:
+    charb: 1.0      # Charbonnier损失
+    outlier: 0.5    # Outlier-aware损失
+    lvw: 0.2        # 局部方差加权
+    msssim: 0.0     # MS-SSIM（IWO阶段可以关闭）
+    vgg: 0.008      # VGG感知损失
+    uranker: 0.01   # URanker IQA
+    musiq: 0.00001  # MUSIQ IQA
+  
+  lvw_win: 11
+  lvw_eps: 1.0e-3
+  msssim_win: 7
+  
+  iqa:
+    freq: 4
+    down: 224
+
+# ==================== 测试配置 ====================
+test:
+  ckpt: "./experiments/2025-11-09 16-07-19 train_lle/models/best_iwo_slim.pkl"
+  save: true  # 是否保存测试结果
+  batch_size: 1
+
+# ==================== 其他配置 ====================
+device: cuda
+seed: 42

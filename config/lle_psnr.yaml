@@ -1,0 +1,124 @@
+exp_name: lle_psnr_edge   # ★ 新实验名，区分之前 lle_psnr_ft
+
+# ★ 数据切分与随机性（与Stage1保持一致）
+data:
+  seed: 2025
+  train_count: 710
+  valid_count: 90
+  test_list: lists/uieb_test90.txt
+
+train:
+  # ========== Stage2 PSNR + 难区域加权：关键参数 ==========
+  warmup: false
+  warmup_epoch: 0
+
+  train_inp: /home/featurize/data/raw-890/raw-890
+  train_gt:  /home/featurize/data/reference-890/reference-890
+  valid_inp: /home/featurize/data/raw-890/raw-890
+  valid_gt:  /home/featurize/data/reference-890/reference-890
+  
+  # ★★★ 从上一轮 PSNR 最佳模型加载 ★★★
+  # 如果你想从上一轮 train_lle_psnr 的 best 开始，就用下面这一行：
+  # ckpt: '/home/featurize/work/test9iwo/experiments/2025-11-17 15-08-24 train_lle_psnr/models/best.pkl'
+  # 如果想直接从 Stage1 best 开始，可以改成：
+  ckpt: '/home/featurize/work/test9/experiments/2025-11-15 03-56-38 train_lle/models/best.pkl'
+
+  batch_size: 4
+  epoch: 80               # ★ 二阶段 60~80 足够，先别拉太长
+  lr: 5e-6                # ★ 比上一轮 1e-5 小一档，更像“抛光”
+  num_workers: 4
+  save_every: 20
+  save_slim: true
+
+  # —— IWO / 门控相关保持默认，不额外激活 —— 
+  gate_lr_scale: 0.5
+  gate_reg: 1e-4
+  gate_reg_epochs: 20
+  gate_reg_tail: 40
+  gate_reg_floor: 1.0e-6
+
+  # —— 验证与调度 ——
+  val_every: 1
+  ema: true
+  ema_decay: 0.999
+
+  scheduler: cosine
+  fast_eval_when_cpu: true
+  fast_eval_max: 15
+
+test:
+  num_workers: 0
+  save: false
+  # ★ 跑完这轮再改成这次实验的 best 路径，现在先占位
+  ckpt: "/home/featurize/work/test9iwo/experiments/lle_psnr_edge/models/best_model_ema.pkl"
+
+demo:
+  demo_inp: /home/featurize/work/test9/image
+  num_workers: 0
+
+model:
+  type: original
+  pretrained: false
+  need_slim: false
+  rep_scale: 4
+  channels: 12
+
+# ========== Stage2 PSNR + 难区域加权：loss配置 ==========
+loss:
+  # ★ 颜色一致性：Stage2 完全关掉（PSNR 专项）
+  color:
+    enable: false
+    warmup_epoch: 0
+    a_window: [126, 134]
+    b_window: [128, 140]
+    var_band: [40, 1200]
+    w_lab_mean: 0.0
+    w_lab_var: 0.0
+    w_rgb_stat: 0.0
+    mu_gap: 0.08
+    rho_min: 0.10
+    scale: 0.0
+
+  # —— LVW 关掉 —— 
+  lvw:
+    enable: false
+
+  # ★ 感知 / IQA：全部关掉
+  uiedp:
+    enable: false
+    w_ms: 0.0
+    w_perc: 0.0
+    w_musiq: 0.0
+    w_uranker: 0.0
+    ms_perc_start: 99999
+    iqa_start: 99999
+    iqa_every: 99999
+    iqa_down: 224
+    grad_clip: 0.1
+
+  # ★ 核心权重：像素 + 少量 SSIM
+  weights:
+    charb: 1.0        # 主力：Charbonnier
+    outlier: 0.0
+    lvw: 0.0
+    msssim: 0.02      # 少量 SSIM 辅助（0 / 0.02 / 0.05 都可以做对比）
+    vgg: 0.0
+    uranker: 0.0
+    musiq: 0.0
+
+  # ★ 新增：难区域加权（边缘 + 暗区），供 main_psnr_edge.py 使用
+  edge_dark:
+    enable: true        # ★ 开启
+    edge_lambda: 0.5    # 边缘加强系数（0.5~1.5 可调）
+    dark_lambda: 0.3    # 暗区加强系数（0.3~1.0 可调）
+    dark_thresh: 0.25   # 灰度 < 0.25 视为暗区
+    use_input_for_edge: true   # 用输入图计算边缘；想更稳也可以设为 false 用 GT
+
+  # 旧参数，保留无妨
+  lvw_win: 11
+  lvw_eps: 1.0e-3
+  msssim_win: 7
+
+  iqa:
+    freq: 99999
+    down: 224

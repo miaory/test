@@ -1,0 +1,246 @@
+# exp_name: lle
+
+# # ★ 数据切分与随机性（最小侵入）
+# data:
+#   seed: 2025              # 固定随机种子（可复现）
+#   train_count: 710        # 从非 test 的剩余样本中取 710 做训练
+#   valid_count: 90         # 从剩余样本中取 90 做验证
+#   test_list: lists/uieb_test90.txt   # 固定测试清单；若留空则首次按 seed 自动生成并缓存到 splits/test_90.txt
+
+# train:
+#   warmup: true
+#   warmup_epoch: 1        # （原 1 → 10）更稳的模型预热
+#   lr_warmup: 1e-6
+
+#   train_inp: /home/featurize/data/raw-890/raw-890
+#   train_gt:  /home/featurize/data/reference-890/reference-890
+#   valid_inp: /home/featurize/data/raw-890/raw-890   # 保留但不再使用，切分由 data:* 接管
+#   valid_gt:  /home/featurize/data/reference-890/reference-890
+
+#   batch_size: 4
+#   epoch: 2000
+#   lr: 2e-4
+#   num_workers: 4          # CPU 上建议 >0；若平台受限可改回 0
+#   save_every: 20
+#   save_slim: true
+
+#   # —— 门控学习更快一些（更容易尽早提升 best）——
+#   gate_lr_scale: 0.5      # （原 0.3 → 0.5）
+#   gate_reg: 1e-4
+#   gate_reg_epochs: 30     # （原 80 → 30）
+
+#   # —— 验证与调度（让 best 更常刷新）——
+#   val_every: 5            # 每 5 个 epoch 验证一次；GPU 恢复后可改回 1
+#   ema: true               # 开启 EMA（验证与保存都用 EMA 更稳更早）
+#   ema_decay: 0.999
+#   cosine_T0: 80           # （原 400 → 80）更快的余弦重启
+#   cosine_Tmult: 2
+
+#   # —— CPU 下快速验证（仅 main2 接了该开关时生效）——
+#   fast_eval_when_cpu: true
+#   fast_eval_max: 15       # 只评估前 15 张；GPU 正常后建议删掉或设为更大
+
+# test:
+#   num_workers: 0
+#   save: false
+#   # 若不指定 test_inp/test_gt，则自动用 data.test_list 或 splits/test_90.txt
+#   # ckpt: experiments/lle/best.pkl
+
+# demo:
+#   demo_inp: /home/featurize/data/EUVP_Dataset/test_samples/Inp
+#   num_workers: 0
+
+# model:
+#   type: original          # [original, re-parameterized]
+#   pretrained: false
+#   need_slim: false
+#   rep_scale: 4
+#   channels: 12
+
+# # === 损失 ===
+# loss:
+#   # —— Lab 颜色一致性（窗口门控 + warm-up）——
+#   color:
+#     enable: true
+#     warmup_epoch: 30      # （CPU 阶段先拉长；GPU 微调时可改回 10）
+#     a_window: [126, 134]
+#     b_window: [128, 140]
+#     var_band: [40, 1200]
+#     w_lab_mean: 0.08
+#     w_lab_var: 0.02
+#     w_rgb_stat: 0.03
+#     mu_gap: 0.08
+#     rho_min: 0.10
+#     scale: 0.5
+
+#   # —— LVW 开关（保留你的设置）——
+#   lvw:
+#     enable: true
+
+#   # === UIEDP：训练期辅助（推理 0 成本） ===
+#   # CPU 阶段先关重型 IQA，GPU 正常后再打开（如：enable: true, iqa_start: 5）
+#   uiedp:
+#     enable: false         # ★ CPU 慢时先关；GPU 恢复后建议改回 true
+#     w_ms: 0.2
+#     w_perc: 0.01
+#     w_musiq: 1.0e-5
+#     w_uranker: 1.0e-3
+#     ms_perc_start: 1
+#     iqa_start: 10
+#     iqa_every: 4
+#     iqa_down: 224
+#     grad_clip: 0.1
+
+#   # === 供 loss.py 直接读取的总权重（与你一致） ===
+#   weights:
+#     charb: 1.0
+#     outlier: 1.0
+#     lvw: 1
+#     msssim: 0.2
+#     vgg: 0.01
+#     uranker: 0.001
+#     musiq: 0.00001
+
+#   lvw_win: 11
+#   lvw_eps: 1.0e-3
+#   msssim_win: 7
+
+#   iqa:
+#     freq: 4
+#     down: 224
+exp_name: lle
+
+# ★ 数据切分与随机性（最小侵入）
+data:
+  seed: 2025              # 固定随机种子（可复现）
+  train_count: 710        # 从非 test 的剩余样本中取 710 做训练
+  valid_count: 90         # 从剩余样本中取 90 做验证
+  test_list: lists/uieb_test90.txt   # 固定测试清单；若留空则首次按 seed 自动生成并缓存到 splits/test_90.txt
+
+train:
+  warmup: true
+  warmup_epoch: 10         # CPU 阶段先短预热；GPU 正常后可提到 10
+  lr_warmup: 1e-5 #1e-6
+
+  train_inp: /home/featurize/data/raw-890/raw-890
+  train_gt:  /home/featurize/data/reference-890/reference-890
+  valid_inp: /home/featurize/data/raw-890/raw-890   # 保留但不再使用，切分由 data:* 接管
+  valid_gt:  /home/featurize/data/reference-890/reference-890
+  # ckpt: '/home/featurize/work/test9iwo/experiments/2025-11-19 06-31-08 train_lle/models/best_E65_PSNR22.771_20251115-042056.pkl' 
+  ckpt: '/home/featurize/work/test9/experiments/2025-11-15 03-56-38 train_lle/history/best_E65_PSNR22.771_20251115-042056.pkl'
+
+  batch_size: 4
+  epoch: 2000
+  lr: 1e-5 #2e-4
+  num_workers: 4
+  save_every: 20
+  save_slim: true
+
+  # —— 门控学习（更容易尽早提升 best）——
+  gate_lr_scale: 0.3
+  gate_reg: 5e-5
+  gate_reg_epochs: 60      # 前30个 epoch 保持基准正则
+  gate_reg_tail: 80        # ★ 之后80个 epoch 线性衰减
+  gate_reg_floor: 1.0e-6   # ★ 最低保持值，避免“断崖式”放开
+
+  # —— 验证与调度（让 best 更常刷新且更稳）——
+  val_every: 5
+  ema: true
+  ema_decay: 0.999
+
+  # 学习率调度器（main2.py 支持：cosine / cosine_wr / plateau / step）
+  scheduler: cosine        # ★ 无重启，更稳；若想用重启改为 cosine_wr 并加 T0/Tmult
+  # cosine_T0: 80          # （仅当 scheduler=cosine_wr 时有效）
+  # cosine_Tmult: 2
+
+  # —— CPU 下快速验证（仅 main2 接了该开关时生效）——
+  fast_eval_when_cpu: false
+
+
+test:
+  num_workers: 0
+  save: false
+  # 若不指定 test_inp/test_gt，则自动用 data.test_list 或 splits/test_90.txt
+  # test_inp: /home/featurize/data/EUVP_Dataset/test_samples/Inp
+  # test_gt: /home/featurize/data/EUVP_Dataset/test_samples/GTr
+  ckpt: '/home/featurize/work/test9iwo/experiments/2025-11-19 11-19-41 train_lle/history/best_E20_PSNR22.732_20251119-112648_iwo.pkl'
+
+demo:
+  demo_inp: /home/featurize/work/test9/image
+  num_workers: 0
+
+model:
+  type: original     # [original, re-parameterized]
+  pretrained: false
+  need_slim: false
+  rep_scale: 4
+  channels: 12
+
+# === 损失 ===
+loss:
+  # —— Lab 颜色一致性（窗口门控 + warm-up + 总系数）——
+  color:
+    enable: false
+    warmup_epoch: 30       # CPU 阶段先拉长；GPU 微调时可改回 10
+    a_window: [126, 134]
+    b_window: [128, 140]
+    var_band: [40, 1200]
+    w_lab_mean: 0.08
+    w_lab_var: 0.02
+    w_rgb_stat: 0.03
+    mu_gap: 0.08
+    rho_min: 0.10
+    scale: 0.5             # 总系数；后期可提升到 1.0
+
+  # —— LVW 开关（保留你的设置）——
+  lvw:
+    enable: true
+
+  # === UIEDP：训练期辅助（推理 0 成本） ===
+  # CPU 慢先关，GPU 正常后再开（如：enable: true, iqa_start: 5）
+  uiedp:
+    enable: false
+    w_ms: 0.2
+    w_perc: 0.01
+    w_musiq: 1.0e-5
+    w_uranker: 1.0e-3
+    ms_perc_start: 1
+    iqa_start: 10
+    iqa_every: 4
+    iqa_down: 224
+    grad_clip: 0.1
+  # === 供 loss.py 直接读取的总权重（与你一致） ===
+  # 初次得到最好的权重
+  # weights:
+  #   charb: 1.0
+  #   outlier: 1.0
+  #   lvw: 1
+  #   msssim: 0.7
+  #   vgg: 0.3
+  #   uranker: 0.05
+  #   musiq: 0.001
+  # 继续训练得到最好权重
+  # weights:
+  #   charb: 0.8
+  #   outlier: 0.8
+  #   lvw: 1
+  #   msssim: 0.5
+  #   vgg: 0.1
+  #   uranker: 0.01
+  #   musiq: 0.0005
+  weights:
+    charb: 1.0
+    outlier: 1.0
+    lvw: 0.8 # 增加 lvw 权重
+    msssim: 0.15  # 增加 msssim 权重
+    vgg: 0.0  # 增加 vgg 权重
+    uranker: 0.08
+    musiq: 0.0005
+    
+  lvw_win: 11
+  lvw_eps: 1.0e-3
+  msssim_win: 7
+
+  iqa:
+    freq: 4
+    down: 224
