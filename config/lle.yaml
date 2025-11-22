@@ -127,10 +127,10 @@ train:
   valid_inp: /home/featurize/data/raw-890/raw-890   # 保留但不再使用，切分由 data:* 接管
   valid_gt:  /home/featurize/data/reference-890/reference-890
   # ckpt: '/home/featurize/work/test9/experiments/2025-11-15 03-56-38 train_lle/models/best.pkl' 
-  ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-20 11-04-52 train_lle/history/best_E1660_PSNR22.824_20251120-194709.pkl'
+  ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-22 00-22-48 train_lle/history/best_E1640_PSNR23.278_20251122-075558.pkl'
   batch_size: 4
   epoch: 2000
-  lr: 1e-6 #2e-4
+  lr: 2e-4 #1e-6 #2e-4
   num_workers: 4
   save_every: 20
   save_slim: true
@@ -160,9 +160,9 @@ test:
   num_workers: 0
   save: false
   # 若不指定 test_inp/test_gt，则自动用 data.test_list 或 splits/test_90.txt
-  test_inp: /home/featurize/data/EUVP_Dataset/test_samples/Inp
-  test_gt: /home/featurize/data/EUVP_Dataset/test_samples/GTr
-  ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-20 11-04-52 train_lle/history/best_E1660_PSNR22.824_20251120-194709.pkl'
+  # test_inp: /home/featurize/data/EUVP_Dataset/test_samples/Inp
+  # test_gt: /home/featurize/data/EUVP_Dataset/test_samples/GTr
+  ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-21 14-23-04 train_lle/history/best_E1930_PSNR23.233_20251121-231246.pkl'
 
 demo:
   demo_inp: /home/featurize/work/test9/image
@@ -213,11 +213,11 @@ loss:
   weights:
     charb: 1.0
     outlier: 1.0
-    lvw: 1
-    msssim: 0.0
-    vgg: 0.0
-    uranker: 0.0
-    musiq: 0.0
+    lvw: 0.8 # 增加 lvw 权重
+    msssim: 0.15  # 增加 msssim 权重
+    vgg: 0.008  # 增加 vgg 权重
+    uranker: 0.01
+    musiq: 0.0005
   # 继续训练得到最好权重
   # weights:
   #   charb: 0.8
@@ -243,4 +243,5 @@ loss:
   iqa:
     freq: 4
     down: 224
+
 
