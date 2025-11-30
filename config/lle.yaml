@@ -126,11 +126,11 @@ train:
   train_gt:  /home/featurize/data/reference-890/reference-890
   valid_inp: /home/featurize/data/raw-890/raw-890   # 保留但不再使用，切分由 data:* 接管
   valid_gt:  /home/featurize/data/reference-890/reference-890
-  # ckpt: '/home/featurize/work/test9/experiments/2025-11-15 03-56-38 train_lle/models/best.pkl' 
-  ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-22 00-22-48 train_lle/history/best_E1640_PSNR23.278_20251122-075558.pkl'
+  # ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-22 10-03-39 train_lle/history/best_E100_PSNR24.080_20251122-103703.pkl' 
+  ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-22 08-06-33 train_lle/history/best_E280_PSNR24.113_20251122-093556.pkl'
   batch_size: 4
   epoch: 2000
-  lr: 2e-4 #1e-6 #2e-4
+  lr: 1e-6 #2e-4
   num_workers: 4
   save_every: 20
   save_slim: true
@@ -160,18 +160,21 @@ test:
   num_workers: 0
   save: false
   # 若不指定 test_inp/test_gt，则自动用 data.test_list 或 splits/test_90.txt
-  # test_inp: /home/featurize/data/EUVP_Dataset/test_samples/Inp
-  # test_gt: /home/featurize/data/EUVP_Dataset/test_samples/GTr
-  ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-21 14-23-04 train_lle/history/best_E1930_PSNR23.233_20251121-231246.pkl'
+  # test_inp: /home/featurize/data/EUVP_Dataset/test_samples/Inp #/home/featurize/data/LSUI_Selected_400/Inp #/home/featurize/data/ocean_ex/poor #/home/featurize/data/LSUI400/input #/home/featurize/data/EUVP_Dataset/test_samples/Inp
+  # test_gt: /home/featurize/data/EUVP_Dataset/test_samples/GTr #/home/featurize/data/LSUI_Selected_400/gtr #/home/featurize/data/ocean_ex/good #/home/featurize/data/LSUI400/GT #/home/featurize/data/EUVP_Dataset/test_samples/GTr
+  # ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-22 08-06-33 train_lle/history/best_E280_PSNR24.113_20251122-093556.pkl'
+  # ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-27 17-24-17 iwo_lle/models/best_iwo_fused.pkl'
+  # ckpt: 'home/featurize/work/test9iwocopy/experiments/2025-11-27 17-24-17 iwo_lle/models/best_slim_reexport.pkl'
+  ckpt: '/home/featurize/work/test9iwocopy/experiments/2025-11-22 08-06-33 train_lle/models/best_slim_reexport.pkl'
 
 demo:
   demo_inp: /home/featurize/work/test9/image
   num_workers: 0
 
 model:
-  type: original     # [original, re-parameterized]
+  type: re-parameterized     # [original, re-parameterized]
   pretrained: false
-  need_slim: false
+  need_slim: true
   rep_scale: 4
   channels: 12
 
@@ -230,7 +233,7 @@ loss:
   # weights:
   #   charb: 1.0
   #   outlier: 1.0
-  #   lvw: 0.1 # 增加 lvw 权重
+  #   lvw: 1.0 # 增加 lvw 权重
   #   msssim: 0.0  # 增加 msssim 权重
   #   vgg: 0.0  # 增加 vgg 权重
   #   uranker: 0.0
@@ -243,5 +246,6 @@ loss:
   iqa:
     freq: 4
     down: 224
+
 
 
